@@ -25,14 +25,14 @@ func runAsServer(port int, shareDomains []string, chromePath string) {
 	c, err := chromedominate.NewChromeDominate(config)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
 	server, err := NewShareServer(c, port, shareDomains)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
@@ -184,9 +184,20 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 		}
 
 		if jStr, err := json.Marshal(message); err == nil {
-			if _, err := writer.Write(jStr); err != nil {
+			jLen := int64(len(jStr))
+
+			b, err := IntToBytes(jLen)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			b = append(b, jStr...)
+
+			if _, err := writer.Write(b); err != nil {
 				log.Println(err)
 			}
+
 		} else {
 			log.Println(err)
 		}

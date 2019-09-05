@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"strings"
 )
@@ -26,6 +28,8 @@ func init() {
 
 func main() {
 
+	flag.Parse()
+
 	if !client && !server {
 		flag.Usage()
 		return
@@ -45,16 +49,35 @@ func main() {
 			flag.Usage()
 			return
 		}
-	}
 
-	if server {
 		runAsServer(port, strings.Split(shareDomain, ","), chromePath)
 	} else {
-		runAsClient()
+
+		if "" == s {
+			flag.Usage()
+			return
+		}
+
+		runAsClient(s, chromePath)
 	}
 
 }
 
-func runAsClient() {
+func IntToBytes(i int64) ([]byte, error) {
+	bytesBuffer := bytes.NewBuffer([]byte{})
+	if err := binary.Write(bytesBuffer, binary.BigEndian, &i); err != nil {
+		return nil, err
+	}
+	return bytesBuffer.Bytes(), nil
+}
 
+func BytesToInt(b []byte) (int64, error) {
+	buf := bytes.NewBuffer(b)
+	ret := int64(0)
+
+	if err := binary.Read(buf, binary.BigEndian, &ret); err != nil {
+		return ret, err
+	}
+
+	return ret, nil
 }
