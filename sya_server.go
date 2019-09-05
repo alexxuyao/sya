@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 func runAsServer(port int, shareDomains []string, chromePath string) {
@@ -164,6 +165,8 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
+	time.Sleep(5 * time.Second)
+
 	// 写入全部cookies
 	for _, cookie := range c.cookies {
 
@@ -183,6 +186,8 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 			Data: cookie,
 		}
 
+		log.Println("share cookie :", cookie)
+
 		if jStr, err := json.Marshal(message); err == nil {
 			jLen := int64(len(jStr))
 
@@ -195,6 +200,10 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 			b = append(b, jStr...)
 
 			if _, err := writer.Write(b); err != nil {
+				log.Println(err)
+			}
+
+			if err = writer.Flush(); err != nil {
 				log.Println(err)
 			}
 

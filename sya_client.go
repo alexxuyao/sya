@@ -207,6 +207,24 @@ func (c *ShareClient) handlerServerMessage(conn *net.TCPConn) {
 	}
 }
 
+func makeCookieUrl(c chromedominate.Cookie) string {
+	u := ""
+
+	if c.Secure {
+		u = "https://"
+	} else {
+		u = "http://"
+	}
+
+	if strings.HasPrefix(c.Domain, ".") {
+		u = u + c.Domain[1:] + c.Path
+	} else {
+		u = u + c.Domain + c.Path
+	}
+
+	return u
+}
+
 func (c *ShareClient) handlerMessage(message []byte) {
 	log.Println("handle message:" + string(message))
 
@@ -231,6 +249,8 @@ func (c *ShareClient) handlerMessage(message []byte) {
 			return
 		}
 
+		u := makeCookieUrl(cookie)
+
 		if ret, err := target.SetCookie(chromedominate.CookieParam{
 			Name:     cookie.Name,
 			Value:    cookie.Value,
@@ -240,8 +260,7 @@ func (c *ShareClient) handlerMessage(message []byte) {
 			HttpOnly: &cookie.HttpOnly,
 			SameSite: cookie.SameSite,
 			Expires:  &cookie.Expires,
-
-			//Url:
+			Url:      &u,
 		}); err != nil {
 			log.Println(err)
 			return
