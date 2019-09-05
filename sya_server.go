@@ -165,7 +165,7 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	// 写入全部cookies
 	for _, cookie := range c.cookies {
