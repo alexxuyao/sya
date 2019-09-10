@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"github.com/alexxuyao/chrome-dominate"
 	"io"
 	"log"
@@ -23,7 +22,7 @@ func runAsServer(port int, shareDomains []string, chromePath string) {
 	filter := &SyaAfterNewTarget{}
 	config.AfterNewChromeDominateTarget = append(config.AfterNewChromeDominateTarget, filter)
 
-	c, err := chromedominate.NewChromeDominate(config)
+	c, err := chromedominate.NewServerAgentChromeDominate(config)
 
 	if err != nil {
 		log.Println(err)
@@ -40,27 +39,9 @@ func runAsServer(port int, shareDomains []string, chromePath string) {
 	filter.ChromeDominate = c
 	filter.ResponseReceivedListener = append(filter.ResponseReceivedListener, server)
 
-	target, err := c.GetOneTarget()
-
-	if err != nil {
-		log.Println(err, "new chrome dominate error")
-		fmt.Println(err)
-		return
-	}
-
-	ret, err := target.OpenPage("https://www.baidu.com/")
-
-	if err != nil {
-		log.Println(err, "open baidu error")
-		fmt.Println(err)
-		return
-	}
-
-	log.Println(ret.FrameId)
-
+	//
 	ch := make(chan int)
 	<-ch
-
 }
 
 type ShareServer struct {
@@ -120,33 +101,58 @@ func (c *ShareServer) InitServer() error {
 			tcpConn, err := tcpListener.AcceptTCP()
 
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				continue
 			}
 
-			fmt.Println("A client connected :" + tcpConn.RemoteAddr().String())
-			go c.tcpPipe(tcpConn)
+			log.Println("A client connected :" + tcpConn.RemoteAddr().String())
+			go c.handlerClientConn(tcpConn)
 		}
 	}()
 
 	// 注册监听，每当页面加载时，都把cookie取出来，发到客户端
-	target, err := c.dominate.GetOneTarget()
-	if err != nil {
-		return err
-	}
+	go func() {
 
-	cookies, err := target.GetAllCookies()
-	if err != nil {
-		return err
-	}
+		for {
 
-	c.cookies = cookies
+			for {
+
+				target, err := c.dominate.GetOneTarget()
+				if err != nil {
+					log.Println("can not get one target", err)
+					break
+				}
+
+				if !target.IsAlive {
+					log.Println("target is not alive")
+					break
+				}
+
+				cookies, err := target.GetAllCookies()
+				if err != nil {
+					log.Println("can not get all cookies", err)
+					break
+				}
+
+				c.cookies = cookies
+
+				for _, conn := range c.clientConn {
+					c.SendCookies(conn)
+				}
+
+				break
+			}
+
+			time.Sleep(5 * time.Second)
+		}
+
+	}()
 
 	return nil
 }
 
 //具体处理连接过程方法
-func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
+func (c *ShareServer) handlerClientConn(conn *net.TCPConn) {
 
 	c.openClient(conn)
 
@@ -155,7 +161,7 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 
 	defer func() {
 		c.closeClient(conn)
-		fmt.Println(" Disconnected : " + ipStr)
+		log.Println(" Disconnected : " + ipStr)
 		if err := conn.Close(); err != nil {
 			log.Println(err)
 		}
@@ -163,11 +169,24 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 
 	//获取一个连接的reader读取流
 	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
-
-	time.Sleep(6 * time.Second)
 
 	// 写入全部cookies
+	c.SendCookies(conn)
+
+	//接收并返回消息
+	for {
+		message, err := reader.ReadString('\n')
+		if err != nil || err == io.EOF {
+			break
+		}
+
+		log.Println(string(message))
+	}
+}
+
+func (c *ShareServer) SendCookies(conn *net.TCPConn) {
+	writer := bufio.NewWriter(conn)
+
 	for _, cookie := range c.cookies {
 
 		share := false
@@ -211,16 +230,6 @@ func (c *ShareServer) tcpPipe(conn *net.TCPConn) {
 			log.Println(err)
 		}
 
-	}
-
-	//接收并返回消息
-	for {
-		message, err := reader.ReadString('\n')
-		if err != nil || err == io.EOF {
-			break
-		}
-
-		fmt.Println(string(message))
 	}
 }
 
