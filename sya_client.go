@@ -12,14 +12,12 @@ import (
 
 func runAsClient(serverAddress string, chromePath string) {
 
-	config := chromedominate.DominateConfig{
-		ChromePath: chromePath,
-	}
+	config := chromedominate.DominateConfig{}
 
 	filter := &SyaAfterNewTarget{}
 	config.AfterNewChromeDominateTarget = append(config.AfterNewChromeDominateTarget, filter)
 
-	c, err := chromedominate.NewChromeDominate(config)
+	c, err := chromedominate.NewServerAgentChromeDominate(config)
 
 	if err != nil {
 		log.Println(err)
@@ -35,24 +33,6 @@ func runAsClient(serverAddress string, chromePath string) {
 
 	filter.ChromeDominate = c
 	filter.ResponseReceivedListener = append(filter.ResponseReceivedListener, server)
-
-	target, err := c.GetOneTarget()
-
-	if err != nil {
-		log.Println(err, "new chrome dominate error")
-		fmt.Println(err)
-		return
-	}
-
-	ret, err := target.OpenPage("https://www.baidu.com/")
-
-	if err != nil {
-		log.Println(err, "open baidu error")
-		fmt.Println(err)
-		return
-	}
-
-	log.Println(ret.FrameId)
 
 	ch := make(chan int)
 	<-ch

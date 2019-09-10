@@ -143,7 +143,7 @@ func (c *ShareServer) InitServer() error {
 				break
 			}
 
-			time.Sleep(5 * time.Second)
+			time.Sleep(60 * time.Second)
 		}
 
 	}()
